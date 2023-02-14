@@ -66,8 +66,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-        printf("DATA: %s\n", event->data);
-        readRPC(event->data);
+        readRPC(event);
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -96,16 +95,31 @@ void mqtt_start()
     esp_mqtt_client_start(client);
 }
 
-void readRPC(char *data)
+void readRPC(esp_mqtt_event_handle_t event)
 {
-    const cJSON *json = cJSON_Parse(data);
+    const cJSON *json = cJSON_Parse(event->data);
     const cJSON *methodJson = cJSON_GetObjectItemCaseSensitive(json, "method");
     if (cJSON_IsString(methodJson) && strcmp(methodJson->valuestring, "setPwmLed") == 0)
     {
         const cJSON *params = cJSON_GetObjectItemCaseSensitive(json, "params");
         if (cJSON_IsNumber(params))
             pwm_set_value(params->valueint);
-
+    }
+    if (cJSON_IsString(methodJson) && strcmp(methodJson->valuestring, "getPwmLed") == 0)
+    {
+        char topic[50];
+        sprintf(topic, "%.*s", event->topic_len, event->topic);
+        char* token = strtok(topic, "/");
+        int count = 0;
+        while(count < 5)
+        {
+            token = strtok(NULL, "/");
+            count++;
+        }
+        char responseTopic[50], mensagem[4];
+        sprintf(responseTopic, "v1/devices/me/rpc/response/%s", token);
+        sprintf(mensagem, "%d", pwm_get_value());
+        mqtt_envia_mensagem(responseTopic, mensagem);
     }
 }
 
@@ -113,4 +127,5 @@ void mqtt_envia_mensagem(char * topico, char * mensagem)
 {
     int message_id = esp_mqtt_client_publish(client, topico, mensagem, 0, 1, 0);
     ESP_LOGI(TAG, "Mensagem enviada, ID: %d", message_id);
+    ESP_LOGI(TAG, "%s\n", mensagem);
 }

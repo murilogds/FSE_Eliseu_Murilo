@@ -30,3 +30,7 @@ void pwm_set_value(int value) {
     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, value * 2.5);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
 }
+
+int pwm_get_value() {
+    return ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0)/2.5;
+}
