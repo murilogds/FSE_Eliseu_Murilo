@@ -11,15 +11,16 @@
 #include "mqtt.h"
 #include "dht11.h"
 #include "pwm.h"
+#include "sound_sensor.h"
 
 SemaphoreHandle_t conexaoWifiSemaphore;
 SemaphoreHandle_t conexaoMQTTSemaphore;
 
-void conectadoWifi(void * params)
+void conectadoWifi(void *params)
 {
-  while(true)
+  while (true)
   {
-    if(xSemaphoreTake(conexaoWifiSemaphore, portMAX_DELAY))
+    if (xSemaphoreTake(conexaoWifiSemaphore, portMAX_DELAY))
     {
       // Processamento Internet
       mqtt_start();
@@ -27,44 +28,48 @@ void conectadoWifi(void * params)
   }
 }
 
-void trataComunicacaoComServidor(void * params)
+void trataComunicacaoComServidor(void *params)
 {
   char tempMensagem[50];
   char humidMensagem[50];
-  if(xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY))
+  if (xSemaphoreTake(conexaoMQTTSemaphore, portMAX_DELAY))
   {
-    while(true)
+    while (true)
     {
-        struct dht11_reading dht_status = DHT11_read();
-        float temperatura = dht_status.temperature;
-        int humidity = dht_status.humidity;
+      struct dht11_reading dht_status = DHT11_read();
+      float temperatura = dht_status.temperature;
+      int humidity = dht_status.humidity;
+      if (temperatura > -1 && humidity > -1)
+      {
         sprintf(tempMensagem, "{\"temperature\": %f}", temperatura);
         mqtt_envia_mensagem("v1/devices/me/telemetry", tempMensagem);
         sprintf(humidMensagem, "{\"umidade\": %d}", humidity);
         mqtt_envia_mensagem("v1/devices/me/attributes", humidMensagem);
-        vTaskDelay(10000 / portTICK_PERIOD_MS);
+      }
+      vTaskDelay(10000 / portTICK_PERIOD_MS);
     }
   }
 }
 
 void app_main(void)
 {
-    DHT11_init(GPIO_NUM_5);
-    // Inicializa o NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-      ESP_ERROR_CHECK(nvs_flash_erase());
-      ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-    
-    conexaoWifiSemaphore = xSemaphoreCreateBinary();
-    conexaoMQTTSemaphore = xSemaphoreCreateBinary();
-    wifi_start();
-    start_pwm();
+  DHT11_init(GPIO_NUM_5);
+  // Inicializa o NVS
+  esp_err_t ret = nvs_flash_init();
+  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+  {
+    ESP_ERROR_CHECK(nvs_flash_erase());
+    ret = nvs_flash_init();
+  }
+  ESP_ERROR_CHECK(ret);
 
-    xTaskCreate(&conectadoWifi,  "Conexão ao MQTT", 4096, NULL, 1, NULL);
-    xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker", 4096, NULL, 1, NULL);
-    // xTaskCreate(&use_pwm, "Envia PWM", 4096, NULL, 1 , NULL);
+  conexaoWifiSemaphore = xSemaphoreCreateBinary();
+  conexaoMQTTSemaphore = xSemaphoreCreateBinary();
+
+  wifi_start();
+  start_pwm();
+
+  xTaskCreate(&conectadoWifi, "Conexão ao MQTT", 4096, NULL, 1, NULL);
+  xTaskCreate(&trataComunicacaoComServidor, "Comunicação com Broker", 4096, NULL, 1, NULL);
+  xTaskCreate(&time_mode, "Sensor de Som", 4096, NULL, 1, NULL);
 }
-
