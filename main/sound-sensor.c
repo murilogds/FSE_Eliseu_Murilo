@@ -14,18 +14,18 @@ void time_mode(void *params)
 {
   pinMode(MIC, GPIO_INPUT);
 
-  int time = 0;
+  int val = 0;
   while (true)
   {
     int sound_signal = digitalRead(MIC);
     sound_signal = sound_signal;
     if (sound_signal == 0)
     {
-      pwm_set_value((pwm_get_value() + 50)%100);
-      // time = 0;
+      val += 50;
+      val %= 100;
+      pwm_set_value(val);
     }
 
-    // time++;
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }

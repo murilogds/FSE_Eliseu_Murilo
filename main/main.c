@@ -45,8 +45,12 @@ void trataComunicacaoComServidor(void *params)
         mqtt_envia_mensagem("v1/devices/me/telemetry", tempMensagem);
         sprintf(humidMensagem, "{\"umidade\": %d}", humidity);
         mqtt_envia_mensagem("v1/devices/me/attributes", humidMensagem);
+        vTaskDelay(10000 / portTICK_PERIOD_MS);
       }
-      vTaskDelay(10000 / portTICK_PERIOD_MS);
+      else
+      {
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+      }
     }
   }
 }
